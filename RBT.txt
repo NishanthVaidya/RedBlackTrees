@@ -1,0 +1,964 @@
+
+//Rules I need to follow for Addition
+//1) The number of Black nodes from any Leaf(Nil) node to the root must be the same
+//2) If a node is Nil i.e. it has no value, then it's considered black
+//3) Root node will always be black, we can change its color when we rotate but then it needs to be reverted to black
+//4) Adding Nodes - a) Nodes only added are red nodes and they are added in BST pattern
+//                  b) If the node is inserted at the root position, make it black
+//                  c) The parent of a red node must be a black node
+//                  d) If there is a tie in the BST search, go to the red branch if there's a red right child or both children are red, if there is                                 only a left red child or there are no red children go left.
+
+//                  e) Violation Cases I) Case 1 - If the parent of a red node is a red node and the uncle node is black or nullPtr, in this case we rotate the                     nodes based on the AVL pattern LL,LR,RR,RL and change the color off all 3 Nodes that are rotated(If the node is root, just convert it                        back to black again)
+//                                    II) Case 2 - If the uncle node of a red node whose parent is a red node, is also a red node, we change the color of the                       parent, the uncle and the grandparent and in the case that the grandparent is the root, we change the color to black regardless
+
+
+//Rules I need to follow for Deletion
+// Handle trivial cases where the node is a red leaf node, or a black node with a red child leaf node.
+// For a black parent with 2 red leaf nodes, choose the predecessor.
+// If not trivial case, recursively replace  it with (1) predecessor if right child is R; else (2) successor if left child is R; else (3) predecessor.
+//As we delete the node and find its inorder predecessor, eventually head to introduled a Double
+//Black node. (DB)
+//Case 1: DB's sibling is black and it has at least one Red Child Node.
+//Case 2: DB's sibling is black and it has no red Child Nodes
+//             Case 2 A: Db's parent is a black node
+//             Case 2 B: Db's parent is a red node
+// Case 2A - Change the sibling to red, change the "current node" from double black to single black. Change the parent to black. If the parent is already black, we will need to check for Cases again.
+// Case 2B - Change the sibling to red, change the "current node" from double black to single black. Change the parent from red to black.
+//Case 3: Db's sibling is a red node
+
+// I have not used any Ternary Operators or Conditions so the Layman can understand the code better
+
+
+#include <iostream>
+using namespace std;
+
+class node {
+public:
+    node* parent;
+    node* Lchild;
+    node* Rchild;
+    int value;
+    bool color; //true: red, false: black
+    bool Is_Rchild;//true if is Rchild of parent; else false
+    node() { parent = Lchild = Rchild = nullptr; Is_Rchild = true; }
+    node(int i) { value = i; parent = Lchild = Rchild = nullptr; Is_Rchild = true; }
+};
+
+class tree {
+public:
+    node* root;
+    tree() {
+        root = nullptr;
+
+    }
+    void R_rotate(node* p);//R-rotate at node pointed by p
+    void L_rotate(node* p);//L-rotate at node pointed by p
+    //R_rotate and L_rotate will be called by add_node, delete_node, delete_1, delete_2A, delete_2B, and delete_3.
+
+
+    void delete_1(node* p, bool b);
+    //Case 1 of delete_node; p points to the parent of double black node; b is true if double black is the right child of its parent; else b is false.
+
+    void delete_2A(node* p, bool b);
+    //Case 2A of delete_node; p points to the parent of double black node; b is true if double black is the right child of its parent; else b is false.
+
+    void delete_2B(node* p, bool b);
+    //Case 2B of delete_node; p points to the parent of double black node; b is true if double black is the right child of its parent; else b is false.
+
+
+    void delete_3(node* p, bool b);
+    //Case 3 of delete_node; p points to the parent of double black node; b is true if double black is the right child of its parent; else b is false.
+
+
+    void add_node(int i);//In case of a tie during the BST search, go to the branch with R child; else if both children are R, go to Right branch; else
+    // go to left branch.
+
+    void delete_node(int i);
+    //Delere the first node encountered with value i;
+    //if the node is in trivial case, process it and it is done.
+    //if not trivial case, recursively replace  it with (1) predecessor if right child is R; else (2) successor if left child is R; else (3) predecessor.
+
+
+    //For the following, during traveral, print (value, color, Is_Rchild) of each node.
+    void InorderPrint(node* p);//Print all nodes of a subtree rooted at node pointed by p; Example: (7 R 1) (12 B 0) (14 R 1) ...
+
+
+};
+
+
+int main() {
+    tree T1;
+    T1.add_node(50);
+    T1.add_node(100);
+    T1.add_node(30);
+    T1.add_node(200);
+    T1.add_node(300);
+    T1.add_node(250);
+    T1.add_node(280);
+    T1.delete_node(200);
+    T1.InorderPrint(T1.root);
+    cout << endl;
+
+    return 0;
+}
+
+
+
+bool db = false;
+
+
+
+void tree::R_rotate(node* p) {
+    node* newRoot = p->Lchild;
+    if (newRoot == nullptr) return;
+
+    p->Lchild = newRoot->Rchild;
+    if (newRoot->Rchild != nullptr) {
+        newRoot->Rchild->parent = p;
+        newRoot->Rchild->Is_Rchild = false;
+    }
+
+    newRoot->parent = p->parent;
+
+    if (p->parent == nullptr) {
+        root = newRoot;
+    }
+    else if (p == p->parent->Lchild) {
+        p->parent->Lchild = newRoot;
+        newRoot->Is_Rchild = false;
+    }
+    else {
+        p->parent->Rchild = newRoot;
+        newRoot->Is_Rchild = true;
+    }
+
+    newRoot->Rchild = p;
+    p->parent = newRoot;
+    p->Is_Rchild = true;
+}
+
+void tree::L_rotate(node* p) {
+    node* newRoot = p->Rchild;
+    if (newRoot == nullptr) return;
+    p->Rchild = newRoot->Lchild;
+    if (newRoot->Lchild != nullptr) {
+        newRoot->Lchild->parent = p;
+        newRoot->Lchild->Is_Rchild = true;
+    }
+    newRoot->parent = p->parent;
+    if (p->parent == nullptr) {
+        root = newRoot;
+    }
+    else if (p == p->parent->Lchild) {
+        p->parent->Lchild = newRoot;
+        newRoot->Is_Rchild = false;
+    }
+    else {
+        p->parent->Rchild = newRoot;
+        newRoot->Is_Rchild = true;
+    }
+    newRoot->Lchild = p;
+    p->parent = newRoot;
+    p->Is_Rchild = false;
+}
+
+
+void tree::delete_1(node* p, bool b) {
+    node* sibling;
+    if (b == true) {
+        sibling = p->Lchild;
+    }
+    else {
+        sibling = p->Rchild;
+    }
+
+    if (sibling == nullptr) return;
+
+    if (b == true) { // Double black is right child
+        if (sibling->Lchild != nullptr and sibling->Lchild->color == true) {
+            bool oldParentColor = p->color;
+            sibling->color = oldParentColor;
+            sibling->Lchild->color = false;
+            p->color = false;
+            R_rotate(p);
+        }
+        else if (sibling->Rchild != nullptr and sibling->Rchild->color == true) {
+            bool oldParentColor = p->color;
+            sibling->Rchild->color = oldParentColor;
+            p->color = false;
+            L_rotate(sibling);
+            R_rotate(p);
+        }
+    }
+    else { // Double black is left child
+        if (sibling->Rchild != nullptr and sibling->Rchild->color == true) {
+            bool oldParentColor = p->color;
+            sibling->color = oldParentColor;
+            sibling->Rchild->color = false;
+            p->color = false;
+            L_rotate(p);
+        }
+        else if (sibling->Lchild != nullptr and sibling->Lchild->color == true) {
+            bool oldParentColor = p->color;
+            sibling->Lchild->color = oldParentColor;
+            if (p->color == false) {
+
+            }
+            p->color = false;
+            R_rotate(sibling);
+            L_rotate(p);
+            // Ensure root remains black
+            if (root != nullptr) {
+                root->color = false;
+            }
+        }
+    }
+}
+
+
+
+void tree::delete_2A(node* p, bool b) {
+    node* sibling;
+    if (p == root) {
+        root->color = false;
+        return;
+    }
+    if (b == true) {
+        sibling = p->Lchild;
+    }
+    else {
+        sibling = p->Rchild;
+    }
+    if (sibling == nullptr) return;
+
+    // Change sibling to red
+    sibling->color = true;
+
+    // If parent is root, were done
+
+    if (p == root) {
+        p->color = false;
+        return;
+    }
+    // If parent is black, propagate double black up
+    else if (p->color == true) {
+        p->color = false;
+    }
+    else if (p->color == false) {
+        if (p->color == false and p->parent != nullptr and p->Is_Rchild == true) {
+            node* sibling = p->parent->Lchild;
+            if (sibling != nullptr) {
+                if (sibling->color == true) {
+                    delete_3(p->parent, true);
+                }
+                else if (sibling->color == false) {
+                    if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                        (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                        delete_1(p->parent, true);
+                    }
+                    else {
+                        if (p->color == false) {
+                            delete_2A(p->parent, true);
+                        }
+                        else {
+                            delete_2B(p->parent, true);
+                        }
+                    }
+
+                }
+            }
+        }
+        else if (p->color == false and p->parent != nullptr and p->Is_Rchild == false) {
+            node* sibling = p->parent->Rchild;
+            if (sibling != nullptr) {
+                if (sibling->color == true) {
+                    delete_3(p->parent, false);
+                }
+                else if (sibling->color == false) {
+                    if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                        (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                        delete_1(p->parent, false);
+                    }
+                    else {
+                        if (p->color == false) {
+
+                            delete_2A(p->parent, false);
+                        }
+                        else {
+                            delete_2B(p->parent, false);
+                        }
+                    }
+
+                }
+            }
+        }
+
+    }
+
+    // Ensure root remains black
+    if (root != nullptr) {
+        root->color = false;
+    }
+}
+
+void tree::delete_2B(node* p, bool b) {
+    node* sibling;
+    if (b == true) {
+        sibling = p->Lchild;
+    }
+    else {
+        sibling = p->Rchild;
+    }        if (sibling == nullptr) return;
+    // Change colors
+    sibling->color = true;  // Make sibling red
+    p->color = false;      // Make parent black
+}
+
+
+
+
+
+
+
+void tree::delete_3(node* p, bool b) {
+    node* sibling;
+    if (b == true) {
+        sibling = p->Lchild;
+    }
+    else {
+        sibling = p->Rchild;
+    }        if (sibling == nullptr) return;
+    bool oldParentColor = p->color;
+    // Perform rotation based on which child is double black
+    if (b == true) {
+        // Double black is right child
+        sibling->color = oldParentColor;
+        p->color = true;  // Parent becomes red
+        R_rotate(p);
+        // Handle the new sibling (original siblings right child)
+        node* newSibling = p->Rchild;
+        if (newSibling != nullptr) {
+            if (newSibling->color == true) {
+                delete_1(p, true);
+            }
+            else {
+                if (p->color == false) {
+                    delete_2A(p, true);
+                }
+                else {
+                    delete_2B(p, true);
+                }
+            }
+        }
+        else {
+            node* sibling = p->Lchild;
+            if (sibling != nullptr) {
+                if (sibling->color == true) {
+                    delete_3(p, true);
+                }
+                else if (sibling->color == false) {
+                    if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                        (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                        delete_1(p, true);
+                    }
+                    else {
+                        if (p->color == false) {
+                            delete_2A(p, true);
+                        }
+                        else {
+                            delete_2B(p, true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        // Double black is left child
+        sibling->color = oldParentColor;
+        p->color = true;  // Parent becomes red
+        L_rotate(p);
+        node* newSibling = p->Lchild;
+        if (newSibling != nullptr) {
+            if (newSibling->color == true) {
+                delete_1(p, false);
+            }
+            else {
+                if (p->color == false) {
+                    delete_2A(p, false);
+                }
+                else {
+                    delete_2B(p, false);
+                }
+            }
+        }
+        else {
+            node* sibling = p->Rchild;
+            if (sibling != nullptr) {
+                if (sibling->color == true) {
+                    delete_3(p, false);
+                }
+                else if (sibling->color == false) {
+                    if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                        (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                        delete_1(p, false);
+                    }
+                    else {
+                        if (p->color == false) {
+                            delete_2A(p, false);
+                        }
+                        else {
+                            delete_2B(p, false);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Ensure root remains black
+    if (root != nullptr) {
+        root->color = false;
+    }
+}
+
+
+
+//-------------------------------------------------Add Logic-----------------------------------------------
+
+void tree::add_node(int i) {
+    if (root == nullptr) {
+        root = new node(i);
+        root->color = false;
+        return;
+    }
+    node* current = root;
+    node* parent = nullptr;
+    // We find the value to remove
+    while (current != nullptr) {
+        parent = current;
+        if (i < current->value) {
+            current = current->Lchild;
+        }
+
+        else if (i > current->value) {
+            current = current->Rchild;
+        }
+        else {  // Tie case: i == current->value
+            if (current->Rchild != nullptr && current->Rchild->color) {  // Right child is red
+                current = current->Rchild;
+            }
+            else if (current->Lchild != nullptr && current->Lchild->color) {  // Left child is red
+                current = current->Lchild;
+            }
+            else {  // No red children
+                current = current->Lchild;
+            }
+        }
+    }
+
+    node* newNode = new node(i);
+    newNode->parent = parent;
+    newNode->color = true;
+
+    if (i < parent->value) {
+        parent->Lchild = newNode;
+        newNode->Is_Rchild = false;
+    }
+    else if (i > parent->value) {
+        parent->Rchild = newNode;
+        newNode->Is_Rchild = true;
+    }
+    else if (i == parent->value) {
+        if (parent->Rchild != nullptr and parent->Rchild->color == true) {
+            parent->Rchild = newNode;
+            newNode->Is_Rchild = true;
+        }
+        else if (parent->Lchild != nullptr and parent->Rchild != nullptr and parent->Lchild->color == true and parent->Rchild->color == true) {
+            parent->Rchild = newNode;
+            newNode->Is_Rchild = true;
+        }
+        else if (parent->Lchild != nullptr and parent->Lchild->color == true) {
+            parent->Lchild = newNode;
+            newNode->Is_Rchild = false;
+        }
+        else if (parent->Lchild == nullptr and parent->Rchild == nullptr) {
+            parent->Lchild = newNode;
+            newNode->Is_Rchild = false;
+        }
+        else {
+            parent->Lchild = newNode;
+            newNode->Is_Rchild = false;
+        }
+    }
+    // We correct the red-black tree violations
+    current = newNode;
+
+    while (current != root and current->parent->color == true) {
+        node* grandparent = current->parent->parent;
+
+        if (current->parent->Is_Rchild == false) {
+            node* uncle = grandparent->Rchild;
+
+            if (uncle != nullptr and uncle->color == true) {
+                current->parent->color = false;
+                uncle->color = false;
+                grandparent->color = true;
+                current = grandparent;
+            }
+            else {
+                if (current->Is_Rchild) {
+                    current = current->parent;
+                    L_rotate(current);
+                }
+                current->parent->color = false;
+                grandparent->color = true;
+                R_rotate(grandparent);
+            }
+        }
+        else {
+            node* uncle = grandparent->Lchild;
+
+            if (uncle != nullptr and uncle->color == true) {
+                current->parent->color = false;
+                uncle->color = false;
+                grandparent->color = true;
+                current = grandparent;
+            }
+            else {
+                if (!current->Is_Rchild) {
+                    current = current->parent;
+                    R_rotate(current);
+                }
+                current->parent->color = false;
+                grandparent->color = true;
+                L_rotate(grandparent);
+            }
+        }
+    }
+    // Ensure root remains black
+    if (root != nullptr) {
+        root->color = false;
+    }
+}
+
+//-------------------------------------------------------Deletion Logic!!!---------------------------------------------------------------------
+
+
+void tree::delete_node(int i) {
+    // Delete the first node encountered with value i
+    if (root == nullptr) {
+        cout << "Tree is empty.\n";
+        return;
+    }
+    node* current = root;
+    node* parent = nullptr;
+    // Locate the node to delete
+    while (current != nullptr and current->value != i) {
+        parent = current;
+        if (i < current->value) {
+            current = current->Lchild;
+        }
+        else {
+            current = current->Rchild;
+        }
+    }
+
+    if (current == nullptr) {
+        cout << "Node not found.\n";
+        return;
+    }
+    // Handle trivial cases
+    // Case 1: Current is a red leaf node
+
+    if (current->Lchild == nullptr and current->Rchild == nullptr and current->color == true) {
+        if (parent == nullptr) {
+            root = nullptr;
+        }
+        else {
+            if (parent->Lchild == current) {
+                parent->Lchild = nullptr;
+            }
+            else {
+                parent->Rchild = nullptr;
+            }
+        }
+        delete current;
+    }
+    // Case 2: Current has one red child
+    else if (current->Lchild == nullptr and current->Rchild != nullptr and
+        current->Rchild->Lchild == nullptr and current->Rchild->Rchild == nullptr and
+        current->Rchild->color == true and current->color == false) {
+        if (parent != nullptr) {
+            if (parent->Lchild == current) {
+                parent->Lchild = current->Rchild;
+            }
+            else {
+                parent->Rchild = current->Rchild;
+            }
+        }
+        else {
+            root = current->Rchild;
+        }
+        current->Rchild->parent = parent;
+        current->Rchild->color = false;
+        delete current;
+    }
+
+    else if (current->Rchild == nullptr and current->Lchild != nullptr and
+        current->Lchild->Lchild == nullptr and current->Lchild->Rchild == nullptr and
+        current->Lchild->color == true and current->color == false) {
+        if (parent != nullptr) {
+            if (parent->Lchild == current) {
+                parent->Lchild = current->Lchild;
+
+            }
+            else {
+                parent->Rchild = current->Lchild;
+            }
+        }
+        else {
+            root = current->Lchild;
+        }
+        parent->Lchild = nullptr;
+
+        current->Lchild->parent = parent;
+        current->Lchild->color = false;
+        delete current;
+        return;
+    }
+    else if (current->Lchild != nullptr and current->Rchild != nullptr and
+        current->Lchild->Lchild == nullptr and current->Lchild->Rchild == nullptr and
+        current->Rchild->Lchild == nullptr and current->Rchild->Rchild == nullptr and
+        current->Lchild->color == true and current->Rchild->color == true and current->color == false) {
+
+        current->value = current->Lchild->value;
+        delete current->Lchild;
+        current->Lchild = nullptr;
+        return;
+    }
+    //The node is a black leaf node
+    else if (current->Lchild == nullptr and current->Rchild == nullptr and current->color == false and current->Is_Rchild != true and current->parent != nullptr and current->value == i) {
+        // Handle double black case for left child
+        node* sibling = current->parent->Rchild;
+        if (sibling != nullptr) {
+            if (sibling->color == true) {
+                delete_3(current->parent, false);
+            }
+            else if (sibling->color == false) {
+                if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                    (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                    delete_1(current->parent, false);
+                }
+                else {
+                    if (current->parent->color == false) {
+                        delete_2A(current->parent, false);
+                    }
+                    else {
+                        delete_2B(current->parent, false);
+                    }
+                }
+            }
+        }
+        current->parent->Lchild = nullptr;
+        delete current;
+        return;
+    }
+    else if (current->Lchild == nullptr and current->Rchild == nullptr and
+        current->color == false and current->Is_Rchild == true and
+        current->parent != nullptr and current->value == i) {
+        // Handle double black case for right child
+        node* sibling = current->parent->Lchild;
+        db = true;
+        if (sibling != nullptr) {
+            if (sibling->color == true) {
+                delete_3(current->parent, true);
+            }
+            else if (sibling->color == false) {
+                if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                    (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                    delete_1(current->parent, true);
+                }
+                else {
+                    if (current->parent->color == false) {
+                        delete_2A(current->parent, true);
+                    }
+                    else {
+                        delete_2B(current->parent, true);
+                    }
+                }
+            }
+        }
+
+        current->parent->Rchild = nullptr;
+        delete current;
+        return;
+    }
+    else if (current->Lchild != nullptr and current->Rchild != nullptr) {
+        // Handle non-trivial case: Replace with inorder predecessor
+        node* predecessor = current->Lchild;
+        node* parentOfPredecessor = current;
+        node* successor = current->Rchild;
+        node* parentOfSuccessor = current;
+
+
+
+        if ((current->Lchild->color == false and current->Rchild->color == false) or (current->Rchild->color == true)) {
+            while (predecessor->Rchild != nullptr) {
+
+                parentOfPredecessor = predecessor;
+                if (predecessor->Rchild != nullptr) {
+                    predecessor = predecessor->Rchild;
+                }
+            }
+            current->value = predecessor->value;
+            if (predecessor->Lchild != nullptr) {
+                predecessor->Lchild->color = predecessor->color;
+                predecessor->Lchild->Is_Rchild = true;
+                predecessor->color = predecessor->parent->color;
+                if (parentOfPredecessor->Lchild == predecessor) {
+                    parentOfPredecessor->Lchild = predecessor->Lchild;
+                }
+                else {
+                    parentOfPredecessor->Rchild = predecessor->Lchild;
+
+                }
+                predecessor->Lchild->parent = parentOfPredecessor;
+            }
+            else {
+                if (parentOfPredecessor->Lchild == predecessor) {
+                    parentOfPredecessor->Lchild = nullptr;
+                    if (predecessor->Lchild == nullptr and predecessor->Rchild == nullptr and predecessor->color == false) {
+                        node* sibling = predecessor->parent->Rchild;
+                        if (sibling != nullptr) {
+                            if (sibling->color == true) {
+                                delete_3(predecessor->parent, false);
+                            }
+                            else if (sibling->color == false) {
+                                if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                                    (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                                    delete_1(predecessor->parent, false);
+                                }
+                                else {
+                                    if (current->parent->color == false) {
+                                        delete_2A(predecessor->parent, false);
+                                    }
+                                    else {
+                                        delete_2B(predecessor->parent, false);
+                                    }
+                                }
+                            }
+                        }
+                        predecessor->parent->Lchild = nullptr;
+                        delete predecessor;
+                        return;
+                    }
+                }
+                else {
+                    parentOfPredecessor->Rchild = nullptr;
+                    if (predecessor->Lchild == nullptr and predecessor->Rchild == nullptr and predecessor->color == false) {
+                        // Handle double black case for right child
+                        db = true;
+                        node* sibling = predecessor->parent->Lchild;
+                        if (sibling != nullptr) {
+                            if (sibling->color == true) {
+                                delete_3(predecessor->parent, true);
+                            }
+                            else if (sibling->color == false) {
+                                if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                                    (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                                    delete_1(predecessor->parent, true);
+                                }
+                                else {
+                                    if (predecessor->parent->color == false) {
+                                        delete_2A(predecessor->parent, true);
+                                    }
+                                    else {
+                                        delete_2B(predecessor->parent, true);
+                                    }
+                                }
+                            }
+                        }
+                        predecessor->parent->Rchild = nullptr;
+                        delete predecessor;
+                        return;
+                    }
+                }
+            }
+            delete predecessor;
+            // Ensure root remains black
+            if (root != nullptr) {
+                root->color = false;
+            }
+        }
+        else if (current->Lchild->color == true) {
+            while (successor->Lchild != nullptr) {
+                parentOfSuccessor = successor;
+                if (successor->Lchild != nullptr) {
+                    successor = successor->Lchild;
+                }
+            }
+
+            current->value = successor->value;
+            if (successor->Rchild != nullptr) {
+                successor->Rchild->color = successor->color;
+                successor->Rchild->Is_Rchild = false;
+                successor->color = successor->parent->color;
+                if (parentOfSuccessor->Rchild == successor) {
+                    parentOfSuccessor->Rchild = successor->Rchild;
+                }
+                else {
+                    parentOfSuccessor->Lchild = successor->Rchild;
+                }
+                successor->Rchild->parent = parentOfSuccessor;
+            }
+            else {
+                if (parentOfSuccessor->Rchild == successor) {
+                    parentOfSuccessor->Rchild = nullptr;
+                    if (successor->Rchild == nullptr and successor->Lchild == nullptr and successor->color == false) {
+                        node* sibling = successor->parent->Lchild;
+                        if (sibling != nullptr) {
+                            if (sibling->color == true) {
+                                delete_3(sibling->parent, true);
+                            }
+                            else if (sibling->color == false) {
+                                if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                                    (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                                    delete_1(successor->parent, true);
+                                }
+                                else {
+                                    if (current->parent->color == false) {
+                                        delete_2A(successor->parent, true);
+                                    }
+                                    else {
+                                        delete_2B(successor->parent, true);
+                                    }
+                                }
+                            }
+                        }
+                        successor->parent->Rchild = nullptr;
+                        delete successor;
+                        return;
+                    }
+                }
+                else {
+                    parentOfSuccessor->Lchild = nullptr;
+                    if (successor->Rchild == nullptr and successor->Lchild == nullptr and successor->color == false) {
+                        // Handle double black case for left child
+                        db = true;
+                        node* sibling = successor->parent->Rchild;
+                        if (sibling != nullptr) {
+                            if (sibling->color == true) {
+                                delete_3(successor->parent, false);
+                            }
+                            else if (sibling->color == false) {
+                                if ((sibling->Lchild != nullptr and sibling->Lchild->color == true) or
+                                    (sibling->Rchild != nullptr and sibling->Rchild->color == true)) {
+                                    delete_1(successor->parent, false);
+                                }
+                                else {
+                                    if (successor->parent->color == false) {
+                                        delete_2A(successor->parent, false);
+                                    }
+                                    else {
+                                        delete_2B(successor->parent, false);
+                                    }
+                                }
+                            }
+                        }
+                        successor->parent->Lchild = nullptr;
+                        delete successor;
+                        return;
+                    }
+                }
+            }
+            delete successor;
+            db = false;
+            // Ensure root remains black
+            if (root != nullptr) {
+                root->color = false;
+            }
+        }
+    }
+}
+
+
+void tree::InorderPrint(node* p)//Print all nodes of a subtree rooted at node pointed by p; Example: (7 R 1) (12 B 0) (14 R 1) ...
+{
+
+
+    if (p == nullptr) {
+        return;
+    }
+    // Check and remove dangling left child
+    if (p->Lchild != nullptr) {
+        if (p->Lchild->parent != p) {
+            // cout << "Dangling pointer detected in Lchild of node " << p->value << ". Removing it.\n";
+            p->Lchild = nullptr;
+        }
+    }
+
+    // Check and remove dangling right child
+    if (p->Rchild != nullptr) {
+        // If the parent pointer of the right child is not this node, it's dangling
+        if (p->Rchild->parent != p) {
+            // cout << "Dangling pointer detected in Rchild of node " << p->value << ". Removing it.\n";
+            p->Rchild = nullptr;
+        }
+    }
+
+    // Check and remove dangling parent pointer
+    if (p->parent != nullptr) {
+        // If the current node is not the child of its parent, it's dangling
+        if (p->Is_Rchild && p->parent->Rchild != p) {
+            //  cout << "Dangling pointer detected in parent of node " << p->value << ". Removing it.\n";
+            p->parent = nullptr;
+        }
+        else if (!p->Is_Rchild && p->parent->Lchild != p) {
+            //  cout << "Dangling pointer detected in parent of node " << p->value << ". Removing it.\n";
+            p->parent = nullptr;
+        }
+    }
+
+    InorderPrint(p->Lchild);
+
+    int childPosition;
+    if (p->parent == nullptr) {
+        childPosition = -1;
+    }
+    else {
+        if (p->Is_Rchild) {
+            childPosition = 1;
+        }
+        else {
+            childPosition = 0;
+        }
+    }
+    if (p == root) {
+        cout << "(" << p->value << " ";
+        if (p->color == true) {
+            cout << "R";
+        }
+        else {
+            cout << "B";
+        }
+        cout << " 0) ";
+    }
+    else {
+        cout << "(" << p->value << " ";
+        if (p->color == true) {
+            cout << "R";
+        }
+        else {
+            cout << "B";
+        }
+        cout << " " << p->Is_Rchild << ") ";
+    }
+    // Ensure root remains black
+    if (root != nullptr) {
+        root->color = false;
+    }
+    InorderPrint(p->Rchild);
+}
+
+
+New File at / · NishanthVaidya/RedBlackTrees
